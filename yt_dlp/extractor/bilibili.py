@@ -47,7 +47,8 @@ from ..utils import (
 
 
 class BilibiliBaseIE(InfoExtractor):
-    _HEADERS = {'Referer': 'https://www.bilibili.com/'}
+    # Browser-like UAs cause HTTP 412 on many Bilibili API endpoints; empty string UA works
+    _HEADERS = {'Referer': 'https://www.bilibili.com/', 'User-Agent': ''}
     _FORMAT_ID_RE = re.compile(r'-(\d+)\.m4s\?')
     _WBI_KEY_CACHE_TIMEOUT = 30  # exact expire timeout is unclear, use 30s for one session
     _wbi_key_cache = {}
@@ -657,8 +658,8 @@ class BiliBiliIE(BilibiliBaseIE):
 
     def _real_extract(self, url):
         video_id, prefix = self._match_valid_url(url).group('id', 'prefix')
-        headers = self.geo_verification_headers()
-        webpage, urlh = self._download_webpage_handle(url, video_id, headers=headers)
+        headers = {**self.geo_verification_headers(), 'User-Agent': ''}
+        webpage, urlh = self._download_webpage_handle(url, video_id, headers=headers, expected_status=412)
         if not self._match_valid_url(urlh.url):
             return self.url_result(urlh.url)
 
@@ -676,12 +677,19 @@ class BiliBiliIE(BilibiliBaseIE):
                 query['aid'] = video_id
             detail = self._download_json(
                 'https://api.bilibili.com/x/web-interface/wbi/view/detail', video_id,
-                note='Downloading redirection URL', errnote='Failed to download redirection URL',
+                note='Downloading video info', errnote='Failed to download video info',
                 query=self._sign_wbi(query, video_id), headers=headers)
             new_url = traverse_obj(detail, ('data', 'View', 'redirect_url', {url_or_none}))
             if new_url and BiliBiliBangumiIE.suitable(new_url):
                 return self.url_result(new_url, BiliBiliBangumiIE)
-            raise ExtractorError('Unable to extract initial state')
+            view = traverse_obj(detail, ('data', 'View', {dict}))
+            if not view:
+                raise ExtractorError('Unable to extract video info')
+            initial_state = {
+                'videoData': view,
+                'upData': traverse_obj(view, ('owner', {dict})) or {},
+                'tags': traverse_obj(detail, ('data', 'Tags')) or [],
+            }
 
         if traverse_obj(initial_state, ('error', 'trueCode')) == -403:
             self.raise_login_required()
