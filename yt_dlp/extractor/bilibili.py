@@ -68,6 +68,17 @@ class BilibiliBaseIE(InfoExtractor):
                 f'Format(s) {missing_formats} are missing; you have to '
                 f'become a premium member to download them. {self._login_hint()}')
 
+    @staticmethod
+    def _cdn_url(stream):
+        """Pick the first bilivideo.com URL if available, else the primary URL.
+
+        Akamai mirrors (upos-*-mirrorakam.akamaized.net) cap unauthenticated sessions
+        at ~128 MiB; Bilibili's own CDN (bilivideo.com) has no such limit.
+        """
+        base_url = traverse_obj(stream, 'baseUrl', 'base_url', 'url')
+        backup_urls = traverse_obj(stream, ('backupUrl', ..., {url_or_none})) or []
+        return next((u for u in [base_url, *backup_urls] if u and 'bilivideo' in u), base_url)
+
     def extract_formats(self, play_info):
         format_names = {
             r['quality']: traverse_obj(r, 'new_description', 'display_desc')
@@ -78,8 +89,9 @@ class BilibiliBaseIE(InfoExtractor):
         flac_audio = traverse_obj(play_info, ('dash', 'flac', 'audio'))
         if flac_audio:
             audios.append(flac_audio)
+
         formats = [{
-            'url': traverse_obj(audio, 'baseUrl', 'base_url', 'url'),
+            'url': self._cdn_url(audio),
             'ext': mimetype2ext(traverse_obj(audio, 'mimeType', 'mime_type')),
             'acodec': traverse_obj(audio, ('codecs', {str.lower})),
             'vcodec': 'none',
@@ -89,7 +101,7 @@ class BilibiliBaseIE(InfoExtractor):
         } for audio in audios]
 
         formats.extend({
-            'url': traverse_obj(video, 'baseUrl', 'base_url', 'url'),
+            'url': self._cdn_url(video),
             'ext': mimetype2ext(traverse_obj(video, 'mimeType', 'mime_type')),
             'fps': float_or_none(traverse_obj(video, 'frameRate', 'frame_rate')),
             'width': int_or_none(video.get('width')),
