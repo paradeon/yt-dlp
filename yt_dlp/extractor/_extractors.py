@@ -95,6 +95,10 @@ from .americastestkitchen import (
 )
 from .anchorfm import AnchorFMEpisodeIE
 from .angel import AngelIE
+from .anime1 import (
+    Anime1IE,
+    Anime1PlaylistIE,
+)
 from .antenna import (
     Ant1NewsGrArticleIE,
     Ant1NewsGrEmbedIE,
@@ -909,6 +913,7 @@ from .jiosaavn import (
 )
 from .joj import JojIE
 from .jove import JoveIE
+from .jumi import JumiIE
 from .jstream import JStreamIE
 from .jtbc import (
     JTBCIE,
