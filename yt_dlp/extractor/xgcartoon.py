@@ -48,8 +48,18 @@ class XgCartoonIE(InfoExtractor):
     def _real_extract(self, url):
         mobj = self._match_valid_url(url)
         video_id = mobj.group('id') or mobj.group('chapter_id')
-        # _download_webpage follows the redirect chain for page_direct URLs
-        webpage = self._download_webpage(url, video_id)
+
+        if mobj.group('chapter_id'):
+            # xgcartoon.com origin is unreliable (times out); reconstruct the
+            # equivalent twxgct.com URL directly from the query parameters so
+            # we never touch the origin server at all.
+            cartoon_id = self._search_regex(
+                r'[?&]cartoon_id=([^&#]+)', url, 'cartoon ID')
+            fetch_url = f'https://www.twxgct.com/video/{cartoon_id}/{video_id}.html'
+        else:
+            fetch_url = url
+
+        webpage = self._download_webpage(fetch_url, video_id)
 
         # The iframe src contains the CDN UUID: player.htm?vid={uuid}
         player_url = self._search_regex(
