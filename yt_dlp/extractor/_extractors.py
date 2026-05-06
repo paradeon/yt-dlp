@@ -1200,6 +1200,10 @@ from .mxplayer import (
     MxplayerIE,
     MxplayerShowIE,
 )
+from .myselfbbs import (
+    MyselfBBSIE,
+    MyselfBBSSeriesIE,
+)
 from .myspace import (
     MySpaceAlbumIE,
     MySpaceIE,
