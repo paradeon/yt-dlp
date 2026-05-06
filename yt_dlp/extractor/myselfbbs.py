@@ -7,7 +7,7 @@ from ..utils import ExtractorError, int_or_none
 
 class MyselfBBSIE(InfoExtractor):
     IE_NAME = 'myselfbbs'
-    _VALID_URL = r'https?://v\.myself-bbs\.com/player/play/(?P<tid>\d+)/(?P<vid>\d+)'
+    _VALID_URL = r'https?://v\.myself-bbs\.com/player/(?:play/(?P<tid>\d+)/(?P<vid>[^/?#\s]+)|(?P<id>[A-Za-z0-9_-]+))'
     _TESTS = [{
         'url': 'https://v.myself-bbs.com/player/play/44360/001',
         'info_dict': {
@@ -16,19 +16,30 @@ class MyselfBBSIE(InfoExtractor):
             'title': 'Episode 1',
         },
         'params': {'skip_download': 'm3u8'},
+    }, {
+        'url': 'https://v.myself-bbs.com/player/AgADoggAAufkKVQ',
+        'info_dict': {
+            'id': 'AgADoggAAufkKVQ',
+            'ext': 'mp4',
+            'title': 'AgADoggAAufkKVQ',
+        },
+        'params': {'skip_download': 'm3u8'},
     }]
 
     def _real_extract(self, url):
-        tid, vid = self._match_valid_url(url).group('tid', 'vid')
-        video_id = f'{tid}_{vid}'
+        mobj = self._match_valid_url(url)
+        tid = mobj.group('tid') or ''
+        vid = mobj.group('vid') or ''
+        id_ = mobj.group('id') or ''
+        video_id = f'{tid}_{vid}' if tid else id_
 
         self._download_webpage(
             url, video_id, headers={'Referer': 'https://myself-bbs.com/'})
 
         ws = self._request_webpage(
-            f'wss://v.myself-bbs.com/ws', video_id, 'Connecting to WebSocket server',
+            'wss://v.myself-bbs.com/ws', video_id, 'Connecting to WebSocket server',
             headers={'Origin': 'https://v.myself-bbs.com'})
-        ws.send(json.dumps({'tid': tid, 'vid': vid, 'id': ''}))
+        ws.send(json.dumps({'tid': tid, 'vid': vid, 'id': id_}))
         data = json.loads(ws.recv())
         ws.close()
 
@@ -40,9 +51,10 @@ class MyselfBBSIE(InfoExtractor):
             m3u8_url, video_id, 'mp4',
             headers={'Referer': 'https://v.myself-bbs.com/'})
 
+        title = f'Episode {int_or_none(vid) or vid}' if vid else id_
         return {
             'id': video_id,
-            'title': f'Episode {int_or_none(vid) or vid}',
+            'title': title,
             'formats': formats,
             'http_headers': {'Referer': 'https://v.myself-bbs.com/'},
         }
@@ -65,6 +77,13 @@ class MyselfBBSSeriesIE(InfoExtractor):
             'title': '3月的獅子 第二季',
         },
         'playlist_mincount': 22,
+    }, {
+        'url': 'https://myself-bbs.com/thread-44833-1-1.html',
+        'info_dict': {
+            'id': '44833',
+            'title': '灣岸競速／灣岸Midnight',
+        },
+        'playlist_count': 26,
     }]
 
     def _real_extract(self, url):
@@ -82,12 +101,13 @@ class MyselfBBSSeriesIE(InfoExtractor):
             ep_num = int_or_none(block.group(1)) or block.group(1)
             ep_subtitle = block.group(2).strip()
             player_url = re.search(
-                r'data-href="(https://v\.myself-bbs\.com/player/play/[^"\r\n]+)',
+                r'data-href="(https://v\.myself-bbs\.com/player/[^"\r\n]+)',
                 block.group(3))
             if not player_url:
                 continue
             ep_title = f'Episode {ep_num}' + (f' - {ep_subtitle}' if ep_subtitle else '')
             entries.append(self.url_result(
-                player_url.group(1).strip(), MyselfBBSIE, title=ep_title))
+                player_url.group(1).strip(), MyselfBBSIE, title=ep_title,
+                url_transparent=True))
 
         return self.playlist_result(entries, playlist_id, title)
