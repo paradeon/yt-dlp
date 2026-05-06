@@ -34,7 +34,12 @@ class MyselfBBSIE(InfoExtractor):
         video_id = f'{tid}_{vid}' if tid else id_
 
         self._download_webpage(
-            url, video_id, headers={'Referer': 'https://myself-bbs.com/'})
+            url, video_id, fatal=False,
+            headers={
+                'Referer': 'https://myself-bbs.com/',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+            })
 
         ws = self._request_webpage(
             'wss://v.myself-bbs.com/ws', video_id, 'Connecting to WebSocket server',
