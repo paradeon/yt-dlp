@@ -58,6 +58,13 @@ class MyselfBBSSeriesIE(InfoExtractor):
             'title': '3月的獅子',
         },
         'playlist_mincount': 22,
+    }, {
+        'url': 'https://myself-bbs.com/thread-43215-1-1.html',
+        'info_dict': {
+            'id': '43215',
+            'title': '3月的獅子 第二季',
+        },
+        'playlist_mincount': 22,
     }]
 
     def _real_extract(self, url):
@@ -67,13 +74,20 @@ class MyselfBBSSeriesIE(InfoExtractor):
         title = self._html_search_regex(
             r'<title>([^【<]+)', webpage, 'title', default=playlist_id).strip()
 
-        episode_links = re.findall(
-            r'第\s*\d+\s*[話话][^<]*(?:</[^>]+>)*\s*<ul[^>]*>\s*<li><a[^>]+data-href="(https://v\.myself-bbs\.com/player/play/[^"\r\n]+)',
-            webpage)
-
-        entries = [
-            self.url_result(player_url.strip(), MyselfBBSIE)
-            for player_url in episode_links
-        ]
+        entries = []
+        for block in re.finditer(
+            r'第\s*(\d+)\s*[話话]([^<]*)</a>\s*<ul[^>]*>(.*?)</ul>',
+            webpage, re.DOTALL,
+        ):
+            ep_num = int_or_none(block.group(1)) or block.group(1)
+            ep_subtitle = block.group(2).strip()
+            player_url = re.search(
+                r'data-href="(https://v\.myself-bbs\.com/player/play/[^"\r\n]+)',
+                block.group(3))
+            if not player_url:
+                continue
+            ep_title = f'Episode {ep_num}' + (f' - {ep_subtitle}' if ep_subtitle else '')
+            entries.append(self.url_result(
+                player_url.group(1).strip(), MyselfBBSIE, title=ep_title))
 
         return self.playlist_result(entries, playlist_id, title)
