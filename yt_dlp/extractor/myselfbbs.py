@@ -110,7 +110,7 @@ class MyselfBBSSeriesIE(InfoExtractor):
 
         episodes = []
         for block in re.finditer(
-            r'(?:第\s*(?P<ep>\d+)\s*[話话](?P<sub>[^<]*)|SP\s*(?P<sp>\d+))</a>\s*<ul[^>]*>(?P<links>.*?)</ul>',
+            r'(?:第\s*(?P<ep>\d+(?:\.\d+)?)\s*[話话](?P<sub>[^<]*)|SP\s*(?P<sp>\d+))</a>\s*<ul[^>]*>(?P<links>.*?)</ul>',
             webpage, re.DOTALL,
         ):
             if block.group('ep'):
