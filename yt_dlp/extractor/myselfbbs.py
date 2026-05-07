@@ -1,5 +1,6 @@
 import json
 import re
+import time
 
 from .common import InfoExtractor
 from ..utils import ExtractorError, int_or_none
@@ -41,12 +42,21 @@ class MyselfBBSIE(InfoExtractor):
                 'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
             })
 
-        ws = self._request_webpage(
-            'wss://v.myself-bbs.com/ws', video_id, 'Connecting to WebSocket server',
-            headers={'Origin': 'https://v.myself-bbs.com'})
-        ws.send(json.dumps({'tid': tid, 'vid': vid, 'id': id_}))
-        data = json.loads(ws.recv())
-        ws.close()
+        for attempt in range(6):
+            try:
+                ws = self._request_webpage(
+                    'wss://v.myself-bbs.com/ws', video_id, 'Connecting to WebSocket server',
+                    headers={'Origin': 'https://v.myself-bbs.com'})
+                ws.send(json.dumps({'tid': tid, 'vid': vid, 'id': id_}))
+                data = json.loads(ws.recv())
+                ws.close()
+                break
+            except ExtractorError:
+                if attempt == 5:
+                    raise
+                wait = 2 ** attempt
+                self.report_warning(f'WebSocket connection failed, retrying in {wait}s ({attempt + 1}/5)')
+                time.sleep(wait)
 
         if data.get('status') != 'ok':
             raise ExtractorError(data.get('message') or 'WebSocket returned error', expected=True)
@@ -114,5 +124,8 @@ class MyselfBBSSeriesIE(InfoExtractor):
             entries.append(self.url_result(
                 player_url.group(1).strip(), MyselfBBSIE, title=ep_title,
                 url_transparent=True))
+
+        if len(entries) == 1:
+            entries[0]['title'] = title
 
         return self.playlist_result(entries, playlist_id, title)
