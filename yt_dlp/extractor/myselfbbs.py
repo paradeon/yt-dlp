@@ -108,22 +108,33 @@ class MyselfBBSSeriesIE(InfoExtractor):
         title = self._html_search_regex(
             r'<title>([^【<]+)', webpage, 'title', default=playlist_id).strip()
 
-        entries = []
+        episodes = []
         for block in re.finditer(
-            r'第\s*(\d+)\s*[話话]([^<]*)</a>\s*<ul[^>]*>(.*?)</ul>',
+            r'(?:第\s*(?P<ep>\d+)\s*[話话](?P<sub>[^<]*)|SP\s*(?P<sp>\d+))</a>\s*<ul[^>]*>(?P<links>.*?)</ul>',
             webpage, re.DOTALL,
         ):
-            ep_num = int_or_none(block.group(1)) or block.group(1)
-            ep_subtitle = block.group(2).strip()
+            if block.group('ep'):
+                ep_label = 'Episode'
+                ep_num = int_or_none(block.group('ep')) or block.group('ep')
+                ep_subtitle = block.group('sub').strip()
+            else:
+                ep_label = 'SP'
+                ep_num = int_or_none(block.group('sp')) or block.group('sp')
+                ep_subtitle = ''
             player_url = re.search(
                 r'data-href="(https://v\.myself-bbs\.com/player/[^"\r\n]+)',
-                block.group(3))
+                block.group('links'))
             if not player_url:
                 continue
-            ep_title = f'Episode {ep_num}' + (f' - {ep_subtitle}' if ep_subtitle else '')
+            episodes.append((ep_label, ep_num, ep_subtitle, player_url.group(1).strip()))
+
+        pad = 2 if len(episodes) >= 10 else 0
+        entries = []
+        for ep_label, ep_num, ep_subtitle, ep_url in episodes:
+            num_str = str(ep_num).zfill(pad) if pad else str(ep_num)
+            ep_title = f'{ep_label} {num_str}' + (f' - {ep_subtitle}' if ep_subtitle else '')
             entries.append(self.url_result(
-                player_url.group(1).strip(), MyselfBBSIE, title=ep_title,
-                url_transparent=True))
+                ep_url, MyselfBBSIE, title=ep_title, url_transparent=True))
 
         if len(entries) == 1:
             entries[0]['title'] = title
