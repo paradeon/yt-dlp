@@ -108,31 +108,39 @@ class MyselfBBSSeriesIE(InfoExtractor):
         title = self._html_search_regex(
             r'<title>([^【<]+)', webpage, 'title', default=playlist_id).strip()
 
+        list_start = webpage.find('劇集列表')
         episodes = []
         for block in re.finditer(
-            r'(?:第\s*(?P<ep>\d+(?:\.\d+)?)\s*[話话](?P<sub>[^<]*)|SP\s*(?P<sp>\d+))</a>\s*<ul[^>]*>(?P<links>.*?)</ul>',
-            webpage, re.DOTALL,
+            r'<a\s+href="javascript:;">(?P<raw>[^<]+)</a>\s*<ul[^>]*>(?P<links>.*?)</ul>',
+            webpage[list_start:] if list_start != -1 else webpage, re.DOTALL,
         ):
-            if block.group('ep'):
-                ep_label = 'Episode'
-                ep_num = int_or_none(block.group('ep')) or block.group('ep')
-                ep_subtitle = block.group('sub').strip()
-            else:
-                ep_label = 'SP'
-                ep_num = int_or_none(block.group('sp')) or block.group('sp')
-                ep_subtitle = ''
+            raw_title = block.group('raw').strip()
             player_url = re.search(
                 r'data-href="(https://v\.myself-bbs\.com/player/[^"\r\n]+)',
                 block.group('links'))
             if not player_url:
                 continue
+            ep_m = re.match(r'第\s*(\d+(?:\.\d+)?)\s*[話话]\s*(.*)', raw_title)
+            if ep_m:
+                ep_label, ep_num, ep_subtitle = 'Episode', ep_m.group(1), ep_m.group(2).strip()
+            else:
+                ep_m = re.match(r'(\S+)\s+(\d+(?:\.\d+)?)\s*(.*)', raw_title)
+                if ep_m:
+                    ep_label, ep_num, ep_subtitle = ep_m.group(1), ep_m.group(2), ep_m.group(3).strip()
+                else:
+                    ep_label, ep_num, ep_subtitle = raw_title, None, ''
             episodes.append((ep_label, ep_num, ep_subtitle, player_url.group(1).strip()))
 
         pad = 2 if len(episodes) >= 10 else 0
         entries = []
         for ep_label, ep_num, ep_subtitle, ep_url in episodes:
-            num_str = str(ep_num).zfill(pad) if pad else str(ep_num)
-            ep_title = f'{ep_label} {num_str}' + (f' - {ep_subtitle}' if ep_subtitle else '')
+            if ep_num is not None:
+                num_str = ep_num.zfill(pad) if pad else ep_num
+                ep_title = f'{ep_label} {num_str}'
+            else:
+                ep_title = ep_label
+            if ep_subtitle:
+                ep_title += f' - {ep_subtitle}'
             entries.append(self.url_result(
                 ep_url, MyselfBBSIE, title=ep_title, url_transparent=True))
 
