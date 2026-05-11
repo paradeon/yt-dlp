@@ -1,8 +1,10 @@
 import glob
 import os
+import re
 import shutil
 import sqlite3
 import tempfile
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .common import InfoExtractor
 from ..networking.exceptions import HTTPError
@@ -105,6 +107,19 @@ class BahamutAnimeCrazyIE(InfoExtractor):
 
         # Read early so playlist logic can be skipped when a specific src is provided
         m3u8_src = self._configuration_arg('m3u8_src', [None], casesense=True)[0]
+
+        # The page URL's sn may not match the actual video when the user navigated
+        # within the player without the URL updating. The Akamai edge-token in the
+        # m3u8 URL encodes the real video SN: hdnts=…~data={device}:{videoSn}:…
+        if m3u8_src:
+            try:
+                hdnts = unquote(parse_qs(urlparse(m3u8_src).query).get('hdnts', [''])[0])
+                m = re.search(r'~data=[^:~]+:(\d+):', hdnts)
+                if m and m.group(1) != video_id:
+                    self.write_debug(f'm3u8 token SN {m.group(1)} overrides page SN {video_id}')
+                    video_id = m.group(1)
+            except Exception:
+                pass
 
         metadata = {}
         if api_result := self._download_json(

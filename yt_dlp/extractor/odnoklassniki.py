@@ -369,12 +369,38 @@ class OdnoklassnikiIE(InfoExtractor):
             'format_id': f.get('name'),
         } for f in traverse_obj(metadata, ('videos', lambda _, v: url_or_none(v['url'])))]
 
+        hls_formats = []
         m3u8_url = traverse_obj(metadata, 'hlsManifestUrl', 'ondemandHls')
         if m3u8_url:
-            formats.extend(self._extract_m3u8_formats(
+            hls_formats = self._extract_m3u8_formats(
                 m3u8_url, video_id, 'mp4', 'm3u8_native',
-                m3u8_id='hls', fatal=False))
+                m3u8_id='hls', fatal=False)
+            formats.extend(hls_formats)
             self._clear_cookies(m3u8_url)
+
+        # ok.ru HLS streams are video-only (segment URLs end in /video/).
+        # Mark them explicitly and copy their resolution/fps/tbr onto the
+        # corresponding muxed direct mp4 formats (matched by type= in the URL)
+        # so that yt-dlp prefers those over the video-only HLS streams.
+        hls_by_type = {}
+        for fmt in hls_formats:
+            if '/video/' in fmt.get('url', ''):
+                fmt['acodec'] = 'none'
+            fmt_type = self._search_regex(r'\btype[/=](\d)', fmt.get('url', ''), 'format type', default=None)
+            if fmt_type:
+                hls_by_type[fmt_type] = fmt
+        for fmt in formats:
+            if fmt.get('protocol') == 'm3u8_native':
+                continue
+            fmt_type = self._search_regex(r'\btype[/=](\d)', fmt.get('url', ''), 'format type', default=None)
+            hls_fmt = hls_by_type.get(fmt_type)
+            if hls_fmt:
+                fmt.update({
+                    'width': hls_fmt.get('width'),
+                    'height': hls_fmt.get('height'),
+                    'fps': hls_fmt.get('fps'),
+                    'tbr': hls_fmt.get('tbr'),
+                })
 
         for mpd_id, mpd_key in [('dash', 'ondemandDash'), ('webm', 'metadataWebmUrl')]:
             mpd_url = metadata.get(mpd_key)

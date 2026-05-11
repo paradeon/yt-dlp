@@ -2491,7 +2491,10 @@ from .wykop import (
     WykopPostIE,
 )
 from .xboxclips import XboxClipsIE
-from .xgcartoon import XgCartoonIE
+from .xgcartoon import (
+    XgCartoonIE,
+    XgCartoonSeriesIE,
+)
 from .xhamster import (
     XHamsterEmbedIE,
     XHamsterIE,

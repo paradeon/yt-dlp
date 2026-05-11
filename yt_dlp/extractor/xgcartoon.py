@@ -1,3 +1,5 @@
+import re
+
 from .common import InfoExtractor
 from ..utils import (
     int_or_none,
@@ -95,3 +97,35 @@ class XgCartoonIE(InfoExtractor):
             'subtitles': subtitles,
             'http_headers': {'Referer': canonical_url},
         }
+
+
+class XgCartoonSeriesIE(InfoExtractor):
+    IE_NAME = 'xgcartoon:series'
+    _VALID_URL = r'https?://(?:www\.)?(?:xgcartoon|twxgct|cnxgct)\.com/detail/(?P<id>[^/?#]+)'
+    _TESTS = [{
+        'url': 'https://www.xgcartoon.com/detail/guaiwumochayueyu-puzezhishu',
+        'info_dict': {
+            'id': 'guaiwumochayueyu-puzezhishu',
+            'title': '怪物（魔剎）【粵語】',
+        },
+        'playlist_count': 74,
+    }]
+
+    def _real_extract(self, url):
+        cartoon_id = self._match_id(url)
+        webpage = self._download_webpage(url, cartoon_id)
+
+        title = self._html_search_regex(r'<h1[^>]*>([^<]+)</h1>', webpage, 'title', default=cartoon_id).strip()
+
+        entries = []
+        seen = set()
+        for chapter_id, ep_title in re.findall(
+            r'chapter_id=([A-Za-z0-9]+)" title="([^"]+)"', webpage,
+        ):
+            if chapter_id in seen:
+                continue
+            seen.add(chapter_id)
+            ep_url = f'https://www.twxgct.com/video/{cartoon_id}/{chapter_id}.html'
+            entries.append(self.url_result(ep_url, XgCartoonIE, chapter_id, ep_title.strip()))
+
+        return self.playlist_result(entries, cartoon_id, title)

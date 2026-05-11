@@ -120,7 +120,7 @@ class MyselfBBSSeriesIE(InfoExtractor):
                 block.group('links'))
             if not player_url:
                 continue
-            ep_m = re.match(r'第\s*(\d+(?:\.\d+)?)\s*[話话]\s*(.*)', raw_title)
+            ep_m = re.match(r'第\s*(\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?)\s*[話话]\s*(.*)', raw_title)
             if ep_m:
                 ep_label, ep_num, ep_subtitle = 'Episode', ep_m.group(1), ep_m.group(2).strip()
             else:
