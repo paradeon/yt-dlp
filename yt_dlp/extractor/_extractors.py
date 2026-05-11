@@ -169,6 +169,7 @@ from .awaan import (
 )
 from .axs import AxsIE
 from .azmedien import AZMedienIE
+from .bahamut import BahamutAnimeCrazyIE
 from .baidu import BaiduVideoIE
 from .banbye import (
     BanByeChannelIE,
