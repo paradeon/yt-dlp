@@ -109,6 +109,14 @@ class XgCartoonSeriesIE(InfoExtractor):
             'title': '怪物（魔剎）【粵語】',
         },
         'playlist_count': 74,
+    }, {
+        # multi-season series: 4 seasons, 140 episodes total
+        'url': 'https://www.xgcartoon.com/detail/chengshilierenxiatanhanyuliang1-4jiriyu-beitiaosi',
+        'info_dict': {
+            'id': 'chengshilierenxiatanhanyuliang1-4jiriyu-beitiaosi',
+            'title': str,
+        },
+        'playlist_count': 140,
     }]
 
     def _real_extract(self, url):
@@ -119,13 +127,30 @@ class XgCartoonSeriesIE(InfoExtractor):
 
         entries = []
         seen = set()
-        for chapter_id, ep_title in re.findall(
-            r'chapter_id=([A-Za-z0-9]+)" title="([^"]+)"', webpage,
-        ):
-            if chapter_id in seen:
-                continue
-            seen.add(chapter_id)
-            ep_url = f'https://www.twxgct.com/video/{cartoon_id}/{chapter_id}.html'
-            entries.append(self.url_result(ep_url, XgCartoonIE, chapter_id, ep_title.strip()))
+        current_season = None
+        season_number = 0
+
+        # Match volume-title headers (season labels) and episode links in document order
+        token_re = re.compile(
+            r'class="[^"]*\bvolume-title\b[^"]*"[^>]*>([^<]+)<'
+            r'|chapter_id=([A-Za-z0-9]+)" title="([^"]+)"')
+        for m in token_re.finditer(webpage):
+            if m.group(1) is not None:
+                current_season = m.group(1).strip()
+                season_number += 1
+            else:
+                chapter_id, ep_title = m.group(2), m.group(3).strip()
+                if chapter_id in seen:
+                    continue
+                seen.add(chapter_id)
+                ep_url = f'https://www.twxgct.com/video/{cartoon_id}/{chapter_id}.html'
+                extra = {}
+                if current_season is not None:
+                    extra['season'] = current_season
+                    extra['season_number'] = season_number
+                entry = self.url_result(
+                    ep_url, XgCartoonIE, chapter_id, ep_title,
+                    url_transparent=True, **extra)
+                entries.append(entry)
 
         return self.playlist_result(entries, cartoon_id, title)
