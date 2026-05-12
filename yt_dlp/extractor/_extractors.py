@@ -839,6 +839,7 @@ from .iheart import (
 )
 from .ilpost import IlPostIE
 from .iltalehti import IltalehtiIE
+from .iyf import IyfIE
 from .imdb import (
     ImdbIE,
     ImdbListIE,
