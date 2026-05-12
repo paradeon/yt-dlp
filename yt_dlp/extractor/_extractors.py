@@ -1,4 +1,8 @@
 # flake8: noqa: F401
+from ._2rk import (
+    TwoRkIE,
+    TwoRkSeriesIE,
+)
 from .abc import (
     ABCIE,
     ABCIViewIE,
