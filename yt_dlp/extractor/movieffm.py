@@ -1,5 +1,6 @@
+import re
+
 from .common import InfoExtractor
-from ..utils import traverse_obj
 
 
 class MovieffmIE(InfoExtractor):
@@ -33,6 +34,15 @@ class MovieffmIE(InfoExtractor):
             r"prvimg\s*:\s*'([^']+)'", webpage, 'thumbnail', default=None)
         description = self._og_search_description(webpage, default=None)
 
+        # Build source index → label map from the player tab buttons
+        source_labels = {}
+        for m in re.finditer(
+                r"@click='play\((\d+),\d+\)'[^<]*<i[^>]*></i>"
+                r"<span class='title'>([^<]+)</span>"
+                r"(?:<span class='tuijian'>([^<]*)</span>)?",
+                webpage):
+            source_labels[int(m.group(1))] = f'{m.group(2)}{m.group(3) or ""}'
+
         formats = []
         subtitles = {}
         for entry in videourls:
@@ -40,7 +50,8 @@ class MovieffmIE(InfoExtractor):
             m3u8_url = entry.get('url')
             if not m3u8_url:
                 continue
-            fmt_id = f'src{src_idx}'
+            label = source_labels.get(src_idx, f'src{src_idx}')
+            fmt_id = label
             if entry.get('type') == 'hls':
                 fmts, subs = self._extract_m3u8_formats_and_subtitles(
                     m3u8_url, video_id, 'mp4', m3u8_id=fmt_id, fatal=False)
