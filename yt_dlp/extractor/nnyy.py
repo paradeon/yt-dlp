@@ -30,9 +30,17 @@ class NnyyIE(InfoExtractor):
         if not video_plays:
             raise ExtractorError('No video sources found')
 
-        m3u8_url = video_plays[0]['play_data']
-        formats, subtitles = self._extract_m3u8_formats_and_subtitles(
-            m3u8_url, video_id, 'mp4')
+        formats = []
+        subtitles = {}
+        for play in video_plays:
+            src = play.get('src_site') or 'unknown'
+            m3u8_url = play.get('play_data')
+            if not m3u8_url:
+                continue
+            fmts, subs = self._extract_m3u8_formats_and_subtitles(
+                m3u8_url, video_id, 'mp4', m3u8_id=src, fatal=False)
+            formats.extend(fmts)
+            self._merge_subtitles(subs, target=subtitles)
 
         return {
             'id': video_id,
@@ -89,13 +97,17 @@ class NnyySeriesIE(InfoExtractor):
                 seen.add(ep_slug)
                 episodes.append((ep_slug, ep_title))
 
+        # Exclude the 'other' slug (always empty); keep document order for non-numbered,
+        # sort ep\d+ slugs numerically
+        non_numbered = [(s, t) for s, t in episodes if s != 'other' and not re.match(r'^ep\d+$', s)]
         numbered = sorted(
             [(s, t) for s, t in episodes if re.match(r'^ep\d+$', s)],
             key=lambda x: int(re.search(r'\d+', x[0]).group()))
+        versions = non_numbered + numbered
 
-        if len(numbered) > 1:
+        if len(versions) > 1:
             entries = []
-            for ep_slug, ep_title in numbered:
+            for ep_slug, ep_title in versions:
                 ep_url = f'https://nnyy.in/_gp/{series_id}/{ep_slug}'
                 entries.append(self.url_result(
                     ep_url, NnyyIE, f'{series_id}_{ep_slug}',
@@ -105,10 +117,8 @@ class NnyySeriesIE(InfoExtractor):
             return self.playlist_result(entries, series_id, title,
                                         description=description)
 
-        # Single video: prefer hd slug, else first ep\d+, else first available
-        ep_slug = next(
-            (s for s, _ in episodes if s == 'hd'),
-            numbered[0][0] if numbered else (episodes[0][0] if episodes else None))
+        # Single version
+        ep_slug = versions[0][0] if versions else (episodes[0][0] if episodes else None)
         if not ep_slug:
             raise ExtractorError('No playable episodes found')
 
@@ -118,9 +128,17 @@ class NnyySeriesIE(InfoExtractor):
         if not video_plays:
             raise ExtractorError('No video sources found')
 
-        m3u8_url = video_plays[0]['play_data']
-        formats, subtitles = self._extract_m3u8_formats_and_subtitles(
-            m3u8_url, series_id, 'mp4')
+        formats = []
+        subtitles = {}
+        for play in video_plays:
+            src = play.get('src_site') or 'unknown'
+            m3u8_url = play.get('play_data')
+            if not m3u8_url:
+                continue
+            fmts, subs = self._extract_m3u8_formats_and_subtitles(
+                m3u8_url, series_id, 'mp4', m3u8_id=src, fatal=False)
+            formats.extend(fmts)
+            self._merge_subtitles(subs, target=subtitles)
 
         return {
             'id': series_id,
