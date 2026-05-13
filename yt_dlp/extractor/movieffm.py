@@ -52,9 +52,13 @@ class MovieffmIE(InfoExtractor):
                 continue
             label = source_labels.get(src_idx, f'src{src_idx}')
             fmt_id = label
+            headers = {'Referer': url}
             if entry.get('type') == 'hls':
                 fmts, subs = self._extract_m3u8_formats_and_subtitles(
-                    m3u8_url, video_id, 'mp4', m3u8_id=fmt_id, fatal=False)
+                    m3u8_url, video_id, 'mp4', m3u8_id=fmt_id, fatal=False,
+                    headers=headers)
+                for f in fmts:
+                    f['http_headers'] = headers
                 formats.extend(fmts)
                 self._merge_subtitles(subs, target=subtitles)
             else:
@@ -62,6 +66,7 @@ class MovieffmIE(InfoExtractor):
                     'format_id': fmt_id,
                     'url': m3u8_url,
                     'ext': 'mp4',
+                    'http_headers': headers,
                 })
 
         if not formats:
