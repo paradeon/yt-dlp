@@ -1177,6 +1177,7 @@ from .motherless import (
     MotherlessUploaderIE,
 )
 from .motorsport import MotorsportIE
+from .movieffm import MovieffmIE
 from .moviepilot import MoviepilotIE
 from .moview import MoviewPlayIE
 from .moviezine import MoviezineIE
