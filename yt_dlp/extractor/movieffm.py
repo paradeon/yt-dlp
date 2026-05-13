@@ -59,6 +59,7 @@ class MovieffmIE(InfoExtractor):
                     headers=headers)
                 for f in fmts:
                     f['http_headers'] = headers
+                    f['protocol'] = 'm3u8'
                 formats.extend(fmts)
                 self._merge_subtitles(subs, target=subtitles)
             else:
