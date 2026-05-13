@@ -43,6 +43,55 @@ class MovieffmIE(InfoExtractor):
                 webpage):
             source_labels[int(m.group(1))] = f'{m.group(2)}{m.group(3) or ""}'
 
+        # Series/playlist page: videourls[source_idx][ep_idx] = {name, url}
+        if videourls and isinstance(videourls[0], list):
+            # Source labels live in a tables:[{ht, cl}, ...] JS array on series pages
+            tables = self._search_json(
+                r'tables\s*:\s*', webpage, 'source labels', video_id,
+                contains_pattern=r'\[(?s:.+)\]', default=None)
+            if isinstance(tables, list):
+                for i, item in enumerate(tables):
+                    if isinstance(item, dict):
+                        source_labels[i] = re.sub(r'<[^>]+>', '', item.get('ht', '')).strip()
+
+            ep_count = max((len(src) for src in videourls if src), default=0)
+            headers = {'Referer': url}
+
+            def _entries():
+                for ep_idx in range(ep_count):
+                    ep_name = None
+                    ep_formats = []
+                    ep_subtitles = {}
+                    for src_idx, src_eps in enumerate(videourls):
+                        if ep_idx >= len(src_eps):
+                            continue
+                        ep = src_eps[ep_idx]
+                        ep_url = ep.get('url')
+                        if not ep_url:
+                            continue
+                        if ep_name is None:
+                            ep_name = ep.get('name', str(ep_idx + 1))
+                        fmt_id = source_labels.get(src_idx, f'src{src_idx}')
+                        fmts, subs = self._extract_m3u8_formats_and_subtitles(
+                            ep_url, f'{video_id}_{ep_name}', 'mp4',
+                            m3u8_id=fmt_id, fatal=False, headers=headers)
+                        for f in fmts:
+                            f['http_headers'] = headers
+                            f['protocol'] = 'm3u8'
+                        ep_formats.extend(fmts)
+                        self._merge_subtitles(subs, target=ep_subtitles)
+                    if ep_formats:
+                        yield {
+                            'id': f'{video_id}_{ep_name or ep_idx + 1}',
+                            'title': f'{title} {ep_name}' if ep_name else title,
+                            'formats': ep_formats,
+                            'subtitles': ep_subtitles,
+                            'thumbnail': thumbnail,
+                        }
+
+            return self.playlist_result(_entries(), video_id, title, description,
+                                        thumbnail=thumbnail)
+
         formats = []
         subtitles = {}
         for entry in videourls:
