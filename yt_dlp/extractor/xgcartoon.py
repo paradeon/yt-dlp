@@ -27,6 +27,20 @@ class XgCartoonIE(InfoExtractor):
             'upload_date': '20230321',
         },
     }, {
+        # episode with VTT captions listed in video_info.json
+        'url': 'https://www.twxgct.com/video/gongqijunzuopindianyinghejiriyu-gongqijun/oRiA2SnnhS.html',
+        'info_dict': {
+            'id': 'oRiA2SnnhS',
+            'ext': 'mp4',
+            'title': str,
+            'thumbnail': r're:^https?://.*',
+            'subtitles': {
+                'zh-Hant': [{'ext': 'vtt'}],
+                'zh-Hans': [{'ext': 'vtt'}],
+            },
+        },
+        'params': {'skip_download': True},
+    }, {
         'url': 'https://www.xgcartoon.com/user/page_direct?cartoon_id=mingzhentankenanjuchangbanhejiriyu-qingshangangchang&chapter_id=486aGGTZLR',
         'info_dict': {
             'id': '486aGGTZLR',
@@ -46,6 +60,17 @@ class XgCartoonIE(InfoExtractor):
     # All three domains (xgcartoon, twxgct, cnxgct) serve the same content
     _PLAYER_HOST = 'pframe.xgcartoon.com'
     _CDN_HOST = 'xgct-video.bzcdn.net'
+
+    # Maps the site's srclang codes (video_info.json captions[].srclang) to BCP 47
+    _CAPTION_LANG_MAP = {
+        'TW': 'zh-Hant',
+        'CN': 'zh-Hans',
+        'EN': 'en',
+        'JP': 'ja',
+        'JA': 'ja',
+        'KR': 'ko',
+        'KO': 'ko',
+    }
 
     def _real_extract(self, url):
         mobj = self._match_valid_url(url)
@@ -78,6 +103,17 @@ class XgCartoonIE(InfoExtractor):
         m3u8_url = f'https://{self._CDN_HOST}/{vid_uuid}/playlist.m3u8'
         formats, subtitles = self._extract_m3u8_formats_and_subtitles(
             m3u8_url, video_id, 'mp4', m3u8_id='hls')
+
+        for cap in (info.get('captions') or []):
+            code = cap.get('srclang')
+            if not code:
+                continue
+            lang = self._CAPTION_LANG_MAP.get(code, code.lower())
+            subtitles.setdefault(lang, []).append({
+                'url': f'https://{self._CDN_HOST}/{vid_uuid}/captions/{code}.vtt',
+                'ext': 'vtt',
+                'name': cap.get('label'),
+            })
 
         # Use the canonical video page URL as Referer (always xgcartoon.com/video/...)
         # regardless of which domain or URL format was originally requested
